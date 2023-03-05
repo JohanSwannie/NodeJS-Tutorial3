@@ -2,26 +2,32 @@ const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const fsPromises = require("fs").promises;
+
 const logEvents = require("./logEvents");
 const EventEmitter = require("events");
-const { setTimeout } = require("timers");
-
 class Emitter extends EventEmitter {}
-
+// initialize object
 const myEmitter = new Emitter();
-
-// myEmitter.on("log", (msg, fileName) => logEvents(msg, fileName));
-
-const PORT = process.env.PORT || 3000;
+myEmitter.on("log", (msg, fileName) => logEvents(msg, fileName));
+const PORT = process.env.PORT || 3500;
 
 const serveFile = async (filePath, contentType, response) => {
   try {
-    const data = await fsPromises.readFile(filePath, "utf8");
-    response.writeHead(200, { "Content-Type": contentType });
-    response.end(data);
-  } catch (error) {
-    console.log(error);
-    // myEmitter.emit("log", `${error.name}: ${error.message}`, "errLog.txt");
+    const rawData = await fsPromises.readFile(
+      filePath,
+      !contentType.includes("image") ? "utf8" : ""
+    );
+    const data =
+      contentType === "application/json" ? JSON.parse(rawData) : rawData;
+    response.writeHead(filePath.includes("404.html") ? 404 : 200, {
+      "Content-Type": contentType,
+    });
+    response.end(
+      contentType === "application/json" ? JSON.stringify(data) : data
+    );
+  } catch (err) {
+    console.log(err);
+    myEmitter.emit("log", `${err.name}: ${err.message}`, "errLog.txt");
     response.statusCode = 500;
     response.end();
   }
